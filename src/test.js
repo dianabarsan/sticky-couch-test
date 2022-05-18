@@ -4,7 +4,7 @@ const db = require('./db');
 const setup = require('./setup');
 const LIMIT = 10;
 const NBR = 200;
-const WAIT_BETWEEN_SAVES = 0;
+const WAIT_BETWEEN_SAVES = 50;
 
 const difference = (array1, array2) => {
   return array1.filter(item => !array2.includes(item));
