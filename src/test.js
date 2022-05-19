@@ -32,7 +32,7 @@ const getChanges = async (userDb, since = 0, pending) => {
   };
 };
 
-const listenForChanges = (username, docIds) => {
+const listenForChanges = (username, docIds, view = 'by_id') => {
   const userDb = db.getUserDb(username);
 
   const receivedDocs = [];
@@ -45,7 +45,7 @@ const listenForChanges = (username, docIds) => {
         endkey: [change.id, {}],
         include_docs: true
       };
-      const viewResults = await userDb.query('main/by_id', opts );
+      const viewResults = await userDb.query(`main/${view}`, opts );
       const docs = viewResults.rows.map(row => row.doc);
       if (!docs.length) {
         reject(new Error(`Failed after ${receivedDocs.length} docs, missing doc ${JSON.stringify(change)} ${JSON.stringify(viewResults)}`));
@@ -128,7 +128,7 @@ describe('user should get changes other users push to other nodes', () => {
     expect(result[0].length).to.equal(0);
   });
 
-  it('should hydrate docs when listening to changes', async () => {
+  it('should index regular view', async () => {
     const docs1 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_3_${idx}`, value: idx }));
     const docs2 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_4_${idx}`, value: idx }));
 
@@ -137,7 +137,24 @@ describe('user should get changes other users push to other nodes', () => {
       ...docs2.map(doc => doc._id),
     ];
 
-    const promiseFn = listenForChanges('one', allDocsIds);
+    const promiseFn = listenForChanges('one', allDocsIds, 'main');
+    await Promise.all([
+      promiseFn(),
+      saveDocs('two', docs1),
+      saveDocs('three', docs2),
+    ]);
+  });
+
+  it('should index linked documents view', async () => {
+    const docs1 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_5_${idx}`, value: idx }));
+    const docs2 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_6_${idx}`, value: idx }));
+
+    const allDocsIds = [
+      ...docs1.map(doc => doc._id),
+      ...docs2.map(doc => doc._id),
+    ];
+
+    const promiseFn = listenForChanges('one', allDocsIds, 'by_id');
     await Promise.all([
       promiseFn(),
       saveDocs('two', docs1),
