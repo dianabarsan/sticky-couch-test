@@ -16,7 +16,7 @@ services:
       - "COUCHDB_LOG_LEVEL=${COUCHDB_LOG_LEVEL:-error}"
     restart: always
     networks:
-      cht-net-e2e:
+      sticky-couch-net:
 
   couchdb.2:
     build: ./couchdb
@@ -31,7 +31,7 @@ services:
       - "COUCHDB_SYNC_ADMINS_NODE=${COUCHDB_SYNC_ADMINS_NODE:-couchdb.1}"
     restart: always
     networks:
-      cht-net-e2e:
+      sticky-couch-net:
 
   couchdb.3:
     build: ./couchdb
@@ -46,7 +46,7 @@ services:
       - "COUCHDB_SYNC_ADMINS_NODE=${COUCHDB_SYNC_ADMINS_NODE:-couchdb.1}"
     restart: always
     networks:
-      cht-net-e2e:
+      sticky-couch-net:
 
   haproxy:
     build: ./haproxy
@@ -61,7 +61,7 @@ services:
       - "COUCHDB3_SERVER=${COUCHDB3_SERVER:-couchdb.3}"
       - "HAPROXY_PORT=${HAPROXY_PORT:-5984}"
     networks:
-      cht-net-e2e:
+      sticky-couch-net:
     ports:
       - ${HAPROXY_PORT:-5984}:${HAPROXY_PORT:-5984}
 
@@ -69,5 +69,5 @@ volumes:
   cht-credentials:
 
 networks:
-  cht-net-e2e:
-    name: cht-net-e2e
+  sticky-couch-net:
+    name: sticky-couch-net

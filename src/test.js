@@ -32,6 +32,35 @@ const getChanges = async (userDb, since = 0, pending) => {
   };
 };
 
+const listenForChanges = (username, docIds) => {
+  const userDb = db.getUserDb(username);
+
+  const receivedDocs = [];
+  const continuous = userDb.changes({ live: true, since: 'now' });
+
+  const promise = new Promise((resolve, reject) => {
+    continuous.on('change', async (change) => {
+      const opts = {
+        startkey: [change.id],
+        endkey: [change.id, {}],
+        include_docs: true
+      };
+      const viewResults = await userDb.query('main/by_id', opts );
+      const docs = viewResults.rows.map(row => row.doc);
+      if (!docs.length) {
+        reject(new Error(`Failed after ${receivedDocs.length} docs, missing doc ${JSON.stringify(change)} ${JSON.stringify(viewResults)}`));
+      }
+      receivedDocs.push(docs[0]._id);
+      const diff = difference(docIds, receivedDocs);
+      if (!diff.length) {
+        resolve();
+      }
+    });
+  });
+
+  return () => promise;
+};
+
 const getChangesForDocs = async (username, docIds) => {
   const userDb = db.getUserDb(username);
 
@@ -80,7 +109,7 @@ const getServersByUser = (parsedLogs, user) => parsedLogs
   .map(parsed => parsed.server);
 
 describe('user should get changes other users push to other nodes', () => {
-  it('should get all changes', async () => {
+  it('should get all changes as an "offline" user when other users push to other nodes', async () => {
     const docs1 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_1_${idx}`, value: idx }));
     const docs2 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_2_${idx}`, value: idx }));
 
@@ -97,6 +126,23 @@ describe('user should get changes other users push to other nodes', () => {
 
     console.log(result[0]);
     expect(result[0].length).to.equal(0);
+  });
+
+  it('should hydrate docs when listening to changes', async () => {
+    const docs1 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_3_${idx}`, value: idx }));
+    const docs2 = Array.from({ length: NBR }).map((_, idx) => ({ _id: `doc_4_${idx}`, value: idx }));
+
+    const allDocsIds = [
+      ...docs1.map(doc => doc._id),
+      ...docs2.map(doc => doc._id),
+    ];
+
+    const promiseFn = listenForChanges('one', allDocsIds);
+    await Promise.all([
+      promiseFn(),
+      saveDocs('two', docs1),
+      saveDocs('three', docs2),
+    ]);
   });
 
   it('sessions should be sticky', async () => {
